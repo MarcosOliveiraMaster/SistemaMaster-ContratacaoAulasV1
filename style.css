@@ -388,7 +388,7 @@ body {
 .botao-duplicar {
   position: absolute;
   top: 175px;
-  right: -10px;
+  right: 0px;
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -608,4 +608,29 @@ body {
   width: 25px;
   height: 25px;
   font-size: 18px;
+}
+
+/* ==================== BOTÕES FIXOS COMPACTOS ==================== */
+
+/* Container principal 20% menor */
+#botoes-fixos.compacto {
+  padding-top: 0.75rem !important;    /* Reduzido de 1rem (p-4) */
+  padding-bottom: 0.75rem !important; /* Reduzido de 1rem (p-4) */
+}
+
+/* Botões dentro do container compacto */
+#botoes-fixos.compacto .btn-orange,
+#botoes-fixos.compacto .btn-white {
+  padding: 8px 16px !important;       /* Reduzido de 10px 20px (20%) */
+  font-size: 0.9rem !important;       /* Reduzido de 1rem */
+}
+
+/* Botões de repetição compactos */
+#botoes-fixos.compacto #botoes-repeticao {
+  margin-bottom: 0.75rem !important;  /* Reduzido de 1rem (mb-4) */
+}
+
+#botoes-fixos.compacto #botoes-repeticao button {
+  padding: 6px 12px !important;       /* Reduzido de 8px 16px */
+  font-size: 0.85rem !important;      /* Reduzido de 0.9rem */
 }
