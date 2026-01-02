@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Configuração do Firebase
+  // ==================== CONFIGURAÇÃO DO FIREBASE ====================
   const firebaseConfig = {
     apiKey: "AIzaSyDPPbSA8SB-L_giAhWIqGbPGSMRBDTPi40",
     authDomain: "master-ecossistemaprofessor.firebaseapp.com",
@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     measurementId: "G-B0KMX4E67D"
   };
 
-  // Initialize Firebase
+  // Inicializar Firebase
   const app = firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("❌ Erro na conexão com Firestore:", error);
     });
 
-  // Elementos principais
+  // ==================== ELEMENTOS PRINCIPAIS ====================
   const sections = {
     apresentacao: document.getElementById("section-apresentacao"),
     verificacao: document.getElementById("section-verificacao"),
@@ -37,8 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
     selecaoAulas: document.getElementById("section-selecaoAulas"),
     calendarioConfirmacao: document.getElementById("section-calendario-confirmacao"),
     confirmacaoEquipe: document.getElementById("section-confirmacaoEquipe"),
-    selecaoAulasConfirmacao: document.getElementById("section-selecaoAulasConfirmacao"),
+    confirmacaoAulas: document.getElementById("section-confirmacaoAulas"), // Alterado para nova seção
     termos: document.getElementById("section-termos"),
+    confirmacaoPagamento: document.getElementById("section-confirmacaoPagamento"), // Nova seção
     fim: document.getElementById("section-fim")
   };
 
@@ -53,27 +54,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalProfessoresNaoEncontrados = document.getElementById("modal-professores-nao-encontrados");
   const modalProfessoresOk = document.getElementById("modal-professores-ok");
 
-  // Estado global
+  // Modal para duplicar aula
+  const modalDuplicarAula = document.getElementById("modal-duplicar-aula");
+  const modalDuplicarNao = document.getElementById("modal-duplicar-nao");
+  const modalDuplicarSim = document.getElementById("modal-duplicar-sim");
+
+  // Modais para termos
+  const modalTermoServico = document.getElementById("modal-termo-servico");
+  const modalTermoPrivacidade = document.getElementById("modal-termo-privacidade");
+  const modalTermoServicoFechar = document.getElementById("modal-termo-servico-fechar");
+  const modalTermoPrivacidadeFechar = document.getElementById("modal-termo-privacidade-fechar");
+  const botaoTermoServico = document.getElementById("botao-termo-servico");
+  const botaoTermoPrivacidade = document.getElementById("botao-termo-privacidade");
+
+  // ==================== ESTADO GLOBAL ====================
   const state = {
     cpf: "",
     selectedDays: [],
     currentMonth: new Date(),
     aulas: [],
-    // Variáveis para professores - serão importadas do banco de dados futuramente
-    professoresDB: [
-      { nome: "José Welligton", materia: "Matemática" },
-      { nome: "Eden Pereira", materia: "Física" },
-      { nome: "Lucas Gabriel", materia: "Química" },
-      { nome: "Noemi de Castro", materia: "Biologia" },
-      { nome: "Thuane Barbosa", materia: "História" },
-      { nome: "Carlos Silva", materia: "Geografia" },
-      { nome: "Ana Paula", materia: "Língua Portuguesa" },
-      { nome: "Roberto Alves", materia: "Língua Inglesa" },
-      { nome: "Mariana Costa", materia: "Filosofia" },
-      { nome: "Pedro Santos", materia: "Sociologia" },
-      { nome: "Fernanda Lima", materia: "Ciências" },
-      { nome: "Ricardo Oliveira", materia: "Pedagogia" }
-    ],
+    // Variáveis para aulas variadas com suporte a múltiplos cards por dia
+    cardsAulasVariadas: [], // Array de objetos {id, day, materia, horario, duracao}
+    cardParaDuplicar: null, // ID do card que será duplicado
+    // Lista de professores do banco de dados
+    professoresDB: [],
+    // Lista de professores anteriores do cliente
+    professoresAnteriores: {}, // {materia: [professores]}
     materias: [
       "Biologia", "Ciências", "Filosofia", "Física", "Geografia",
       "História", "Língua Portuguesa", "Língua Inglesa", "Matemática", 
@@ -81,11 +87,17 @@ document.addEventListener("DOMContentLoaded", () => {
     ].sort(),
     tipoAgendamento: null, // 'padrao' ou 'variadas'
     manterProfessores: false,
-    nomeCliente: "", // Adicionado para armazenar o nome do cliente
-    nomeAluno: "", // Adicionado para armazenar o nome do(s) aluno(s)
-    codigoContratacao: "" // Adicionado para armazenar o código
+    nomeCliente: "",
+    nomeAluno: "",
+    estudantes: [], // Array de estudantes vinculados ao cliente
+    codigoContratacao: "",
+    modoPagamento: "", // "Cartão de crédito" ou "Pagamento PIX"
+    statusPagamento: "A pagar", // Valor padrão
+    statusAula: "Aguardando aula" // Valor padrão
   };
 
+  // ==================== FUNÇÕES AUXILIARES ====================
+  
   // Função para formatar lista de nomes de estudantes
   function formatarNomesEstudantes(estudantes) {
     if (!estudantes || estudantes.length === 0) {
@@ -111,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const todosMenosUltimo = nomes.slice(0, -1);
     const ultimo = nomes[nomes.length - 1];
     
-    return `${todosMenosUltimo.join(', ')} e ${ultimo}`;
+    return `${todosMenosUltimo.join(", ")} e ${ultimo}`;
   }
 
   // Funções para mostrar/ocultar loading
@@ -140,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Configuração do calendário
+  // ==================== CONFIGURAÇÃO DO CALENDÁRIO ====================
   function initCalendar() {
     const monthYear = document.getElementById("month-year");
     const calendarDays = document.getElementById("calendar-days");
@@ -151,12 +163,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const year = state.currentMonth.getFullYear();
       const month = state.currentMonth.getMonth();
       
-      monthYear.textContent = state.currentMonth.toLocaleDateString('pt-BR', {
-        month: 'long',
-        year: 'numeric'
+      monthYear.textContent = state.currentMonth.toLocaleDateString("pt-BR", {
+        month: "long",
+        year: "numeric"
       }).replace(/^\w/, c => c.toUpperCase());
 
-      calendarDays.innerHTML = '';
+      calendarDays.innerHTML = "";
 
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -165,33 +177,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Dias vazios no início
       for (let i = 0; i < firstDay.getDay(); i++) {
-        calendarDays.appendChild(document.createElement('div'));
+        calendarDays.appendChild(document.createElement("div"));
       }
 
       // Dias do mês
       for (let day = 1; day <= lastDay.getDate(); day++) {
         const date = new Date(year, month, day);
-        const dayElement = document.createElement('div');
+        const dayElement = document.createElement("div");
         dayElement.textContent = day;
 
         // Verificar se é passado
         if (date < today) {
-          dayElement.classList.add('past');
+          dayElement.classList.add("past");
         } else {
           // Verificar se está selecionado
           const isSelected = state.selectedDays.some(selected => 
             selected.toDateString() === date.toDateString()
           );
           
-          if (isSelected) dayElement.classList.add('selected');
+          if (isSelected) dayElement.classList.add("selected");
           
           // Adicionar evento de clique
-          dayElement.addEventListener('click', () => toggleDaySelection(date, dayElement));
+          dayElement.addEventListener("click", () => toggleDaySelection(date, dayElement));
         }
 
         // Marcar dia atual
         if (date.toDateString() === today.toDateString()) {
-          dayElement.classList.add('today');
+          dayElement.classList.add("today");
         }
 
         calendarDays.appendChild(dayElement);
@@ -205,19 +217,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (index === -1) {
         state.selectedDays.push(date);
-        element.classList.add('selected');
+        element.classList.add("selected");
       } else {
         state.selectedDays.splice(index, 1);
-        element.classList.remove('selected');
+        element.classList.remove("selected");
       }
     }
 
-    prevBtn.addEventListener('click', () => {
+    prevBtn.addEventListener("click", () => {
       state.currentMonth.setMonth(state.currentMonth.getMonth() - 1);
       renderCalendar();
     });
 
-    nextBtn.addEventListener('click', () => {
+    nextBtn.addEventListener("click", () => {
       state.currentMonth.setMonth(state.currentMonth.getMonth() + 1);
       renderCalendar();
     });
@@ -227,16 +239,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Formatação de data
   function formatDate(date) {
-    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const dia = date.getDate().toString().padStart(2, '0');
-    const mes = (date.getMonth() + 1).toString().padStart(2, '0');
+    const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const dia = date.getDate().toString().padStart(2, "0");
+    const mes = (date.getMonth() + 1).toString().padStart(2, "0");
     const ano = date.getFullYear();
     const diaSemana = diasSemana[date.getDay()];
     
     return `${diaSemana} - ${dia}/${mes}/${ano}`;
   }
 
-  // Configurar seção de seleção de aulas
+  // ==================== SEÇÃO 4: SELEÇÃO DE AULAS ====================
   function setupSelecaoAulas() {
     const btnAulasPadrao = document.getElementById("button-AulasPadrao");
     const btnAulasVariadas = document.getElementById("button-AulasVariadas");
@@ -247,7 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Popular matéria padrão
     const selectMateriaPadrao = document.getElementById("select-materia-padrao");
-    selectMateriaPadrao.innerHTML = '<option value="">Selecione a matéria que iremos estudar</option>';
+    selectMateriaPadrao.innerHTML = "<option value=''>Selecione a matéria que iremos estudar</option>";
     state.materias.forEach(materia => {
       const option = document.createElement("option");
       option.value = materia;
@@ -263,6 +275,8 @@ document.addEventListener("DOMContentLoaded", () => {
     botoesRepeticao.classList.add("hidden");
     btnAvancar.disabled = true;
     state.tipoAgendamento = null;
+    state.cardsAulasVariadas = [];
+    state.cardParaDuplicar = null;
 
     btnAulasPadrao.addEventListener("click", () => {
       btnAulasPadrao.classList.add("bg-orange-500", "text-white");
@@ -277,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
         botoesRepeticao.classList.add("hidden");
       }, 300);
       
-      state.tipoAgendamento = 'padrao';
+      state.tipoAgendamento = "padrao";
       verificarCamposPreenchidos();
       
       // Ajustar altura da seção
@@ -296,7 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
       botoesRepeticao.classList.remove("hide", "hidden");
       botoesRepeticao.classList.add("show");
       
-      state.tipoAgendamento = 'variadas';
+      state.tipoAgendamento = "variadas";
       renderAulasVariadas();
       
       // Ajustar altura da seção
@@ -311,9 +325,41 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("select-duracao-padrao").addEventListener("change", verificarCamposPreenchidos);
 
     // Botões de repetição com modal
-    document.getElementById("btn-repetir-horario").addEventListener("click", () => mostrarModal('horario'));
-    document.getElementById("btn-repetir-disciplinas").addEventListener("click", () => mostrarModal('disciplinas'));
-    document.getElementById("btn-repetir-duracao").addEventListener("click", () => mostrarModal('duracao'));
+    document.getElementById("btn-repetir-horario").addEventListener("click", () => mostrarModal("horario"));
+    document.getElementById("btn-repetir-disciplinas").addEventListener("click", () => mostrarModal("disciplinas"));
+    document.getElementById("btn-repetir-duracao").addEventListener("click", () => mostrarModal("duracao"));
+
+    // Configurar eventos do modal de duplicação
+    modalDuplicarNao.addEventListener("click", () => {
+      modalDuplicarAula.classList.add("hidden");
+      state.cardParaDuplicar = null;
+    });
+
+    modalDuplicarSim.addEventListener("click", () => {
+      if (state.cardParaDuplicar) {
+        // Encontrar o card original
+        const cardOriginal = state.cardsAulasVariadas.find(c => c.id === state.cardParaDuplicar);
+        if (cardOriginal) {
+          // Criar novo card com os mesmos dados
+          const novoCard = {
+            id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            day: cardOriginal.day,
+            materia: cardOriginal.materia,
+            horario: cardOriginal.horario,
+            duracao: cardOriginal.duracao
+          };
+          
+          // Adicionar após o card original
+          const indexOriginal = state.cardsAulasVariadas.findIndex(c => c.id === state.cardParaDuplicar);
+          state.cardsAulasVariadas.splice(indexOriginal + 1, 0, novoCard);
+          
+          // Re-renderizar
+          renderAulasVariadas();
+        }
+      }
+      modalDuplicarAula.classList.add("hidden");
+      state.cardParaDuplicar = null;
+    });
   }
 
   // Ajustar altura da seção de seleção de aulas
@@ -328,6 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Mostrar modal de repetição
   function mostrarModal(tipo) {
     const mensagens = {
       horario: { titulo: "Repetir Horário", mensagem: "Esta ação irá replicar o mesmo horário para todas as aulas selecionadas." },
@@ -342,9 +389,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Configurar ação do botão aplicar
     modalAplicar.onclick = () => {
       switch(tipo) {
-        case 'horario': repetirHorario(); break;
-        case 'disciplinas': repetirDisciplinas(); break;
-        case 'duracao': repetirDuracao(); break;
+        case "horario": repetirHorario(); break;
+        case "disciplinas": repetirDisciplinas(); break;
+        case "duracao": repetirDuracao(); break;
       }
       modal.classList.add("hidden");
     };
@@ -358,67 +405,52 @@ document.addEventListener("DOMContentLoaded", () => {
   // Configurar evento para modal de professores não encontrados
   modalProfessoresOk.addEventListener("click", () => {
     modalProfessoresNaoEncontrados.classList.add("hidden");
-    // Habilitar botão avançar após fechar o modal
-    document.getElementById("equipe-avancar").disabled = false;
   });
 
+  // Verificar campos preenchidos
   function verificarCamposPreenchidos() {
     const btnAvancar = document.getElementById("selecao-avancar");
     
-    if (state.tipoAgendamento === 'padrao') {
+    if (state.tipoAgendamento === "padrao") {
       const materia = document.getElementById("select-materia-padrao").value;
       const horario = document.getElementById("input-horario-padrao").value;
       const duracao = document.getElementById("select-duracao-padrao").value;
       
       btnAvancar.disabled = !(materia && horario && duracao);
-    } else if (state.tipoAgendamento === 'variadas') {
-      const todosPreenchidos = Array.from(document.querySelectorAll('.select-materia, .input-horario, .select-duracao'))
-        .every(campo => campo.value !== '');
+    } else if (state.tipoAgendamento === "variadas") {
+      // Verificar se todos os cards têm todos os campos preenchidos
+      const todosPreenchidos = state.cardsAulasVariadas.every(card => 
+        card.materia && card.horario && card.duracao
+      );
       
-      btnAvancar.disabled = !todosPreenchidos;
+      btnAvancar.disabled = !todosPreenchidos || state.cardsAulasVariadas.length === 0;
     } else {
       btnAvancar.disabled = true;
     }
   }
 
+  // Renderizar cards de aulas variadas
   function renderAulasVariadas() {
     const container = document.getElementById("aulas-variadas-container");
-    container.innerHTML = "";
-
-    state.selectedDays.sort((a, b) => a - b).forEach((day, index) => {
-      const card = document.createElement("div");
-      card.className = "bg-white rounded-lg shadow p-4";
-      card.innerHTML = `
-        <h4 class="font-semibold mb-2">${formatDate(day)}</h4>
-        <select class="select-materia w-full rounded-lg border px-3 py-2 text-comfortaa mb-2" data-index="${index}">
-          <option value="">Selecione a matéria</option>
-        </select>
-        <input type="time" class="input-horario w-full rounded-lg border px-3 py-2 text-comfortaa mb-2" data-index="${index}">
-        <select class="select-duracao w-full rounded-lg border px-3 py-2 text-comfortaa" data-index="${index}">
-          <option value="">Selecione a duração</option>
-          <option value="1h">1h</option>
-          <option value="1h30">1h30</option>
-          <option value="2h">2h</option>
-          <option value="2h30">2h30</option>
-          <option value="3h">3h</option>
-        </select>
-      `;
-      
-      // Popular matérias
-      const selectMateria = card.querySelector(".select-materia");
-      state.materias.forEach(materia => {
-        const option = document.createElement("option");
-        option.value = materia;
-        option.textContent = materia;
-        selectMateria.appendChild(option);
+    
+    // Se não houver cards criados ainda, criar um para cada dia selecionado
+    if (state.cardsAulasVariadas.length === 0 && state.selectedDays.length > 0) {
+      state.cardsAulasVariadas = state.selectedDays.sort((a, b) => a - b).map((day, index) => {
+        return {
+          id: `card-${Date.now()}-${index}`,
+          day: day,
+          materia: "",
+          horario: "",
+          duracao: ""
+        };
       });
-
-      // Adicionar eventos para verificar preenchimento
-      selectMateria.addEventListener("change", verificarCamposPreenchidos);
-      card.querySelector(".input-horario").addEventListener("change", verificarCamposPreenchidos);
-      card.querySelector(".select-duracao").addEventListener("change", verificarCamposPreenchidos);
-
-      container.appendChild(card);
+    }
+    
+    container.innerHTML = "";
+    
+    state.cardsAulasVariadas.forEach((card, index) => {
+      const cardElement = createCardElement(card, index);
+      container.appendChild(cardElement);
     });
     
     verificarCamposPreenchidos();
@@ -427,39 +459,143 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: 'smooth'
+        behavior: "smooth"
       });
     }, 300);
   }
 
+  // Criar elemento de card para aula variada
+  function createCardElement(card, index) {
+    const cardDiv = document.createElement("div");
+    cardDiv.className = "aula-card";
+    cardDiv.dataset.cardId = card.id;
+
+    // Título com a data
+    const title = document.createElement("h4");
+    title.className = "font-semibold mb-2 text-gray-800";
+    title.textContent = formatDate(card.day);
+    cardDiv.appendChild(title);
+
+    // Select de matéria
+    const selectMateria = document.createElement("select");
+    selectMateria.className = "select-materia w-full rounded-lg border px-3 py-2 text-comfortaa mb-2";
+    selectMateria.dataset.cardId = card.id;
+    
+    const optionDefault = document.createElement("option");
+    optionDefault.value = "";
+    optionDefault.textContent = "Selecione a matéria";
+    selectMateria.appendChild(optionDefault);
+    
+    state.materias.forEach(materia => {
+      const option = document.createElement("option");
+      option.value = materia;
+      option.textContent = materia;
+      if (card.materia === materia) option.selected = true;
+      selectMateria.appendChild(option);
+    });
+    
+    selectMateria.addEventListener("change", (e) => {
+      const cardId = e.target.dataset.cardId;
+      const cardIndex = state.cardsAulasVariadas.findIndex(c => c.id === cardId);
+      if (cardIndex !== -1) {
+        state.cardsAulasVariadas[cardIndex].materia = e.target.value;
+      }
+      verificarCamposPreenchidos();
+    });
+    cardDiv.appendChild(selectMateria);
+
+    // Input de horário
+    const inputHorario = document.createElement("input");
+    inputHorario.type = "time";
+    inputHorario.className = "input-horario w-full rounded-lg border px-3 py-2 text-comfortaa mb-2";
+    inputHorario.dataset.cardId = card.id;
+    inputHorario.value = card.horario;
+    inputHorario.addEventListener("change", (e) => {
+      const cardId = e.target.dataset.cardId;
+      const cardIndex = state.cardsAulasVariadas.findIndex(c => c.id === cardId);
+      if (cardIndex !== -1) {
+        state.cardsAulasVariadas[cardIndex].horario = e.target.value;
+      }
+      verificarCamposPreenchidos();
+    });
+    cardDiv.appendChild(inputHorario);
+
+    // Select de duração
+    const selectDuracao = document.createElement("select");
+    selectDuracao.className = "select-duracao w-full rounded-lg border px-3 py-2 text-comfortaa";
+    selectDuracao.dataset.cardId = card.id;
+    
+    const optionDuracaoDefault = document.createElement("option");
+    optionDuracaoDefault.value = "";
+    optionDuracaoDefault.textContent = "Selecione a duração";
+    selectDuracao.appendChild(optionDuracaoDefault);
+    
+    const duracoes = ["1h", "1h30", "2h", "2h30", "3h"];
+    duracoes.forEach(duracao => {
+      const option = document.createElement("option");
+      option.value = duracao;
+      option.textContent = duracao;
+      if (card.duracao === duracao) option.selected = true;
+      selectDuracao.appendChild(option);
+    });
+    
+    selectDuracao.addEventListener("change", (e) => {
+      const cardId = e.target.dataset.cardId;
+      const cardIndex = state.cardsAulasVariadas.findIndex(c => c.id === cardId);
+      if (cardIndex !== -1) {
+        state.cardsAulasVariadas[cardIndex].duracao = e.target.value;
+      }
+      verificarCamposPreenchidos();
+    });
+    cardDiv.appendChild(selectDuracao);
+
+    // Botão de duplicar (círculo laranja com +)
+    const btnDuplicar = document.createElement("button");
+    btnDuplicar.className = "botao-duplicar";
+    btnDuplicar.innerHTML = "+";
+    btnDuplicar.title = "Adicionar outra aula neste mesmo dia";
+    btnDuplicar.addEventListener("click", () => {
+      // Abrir modal de confirmação
+      state.cardParaDuplicar = card.id;
+      modalDuplicarAula.classList.remove("hidden");
+    });
+    cardDiv.appendChild(btnDuplicar);
+
+    return cardDiv;
+  }
+
+  // Funções de repetição para aulas variadas
   function repetirHorario() {
-    const horarios = document.querySelectorAll(".input-horario");
-    if (horarios.length > 0) {
-      const primeiroHorario = horarios[0].value;
-      horarios.forEach(input => input.value = primeiroHorario);
+    if (state.cardsAulasVariadas.length > 0) {
+      const primeiroHorario = state.cardsAulasVariadas[0].horario;
+      state.cardsAulasVariadas.forEach(card => {
+        card.horario = primeiroHorario;
+      });
+      renderAulasVariadas();
     }
-    verificarCamposPreenchidos();
   }
 
   function repetirDisciplinas() {
-    const materias = document.querySelectorAll(".select-materia");
-    if (materias.length > 0) {
-      const primeiraMateria = materias[0].value;
-      materias.forEach(select => select.value = primeiraMateria);
+    if (state.cardsAulasVariadas.length > 0) {
+      const primeiraMateria = state.cardsAulasVariadas[0].materia;
+      state.cardsAulasVariadas.forEach(card => {
+        card.materia = primeiraMateria;
+      });
+      renderAulasVariadas();
     }
-    verificarCamposPreenchidos();
   }
 
   function repetirDuracao() {
-    const duracoes = document.querySelectorAll(".select-duracao");
-    if (duracoes.length > 0) {
-      const primeiraDuracao = duracoes[0].value;
-      duracoes.forEach(select => select.value = primeiraDuracao);
+    if (state.cardsAulasVariadas.length > 0) {
+      const primeiraDuracao = state.cardsAulasVariadas[0].duracao;
+      state.cardsAulasVariadas.forEach(card => {
+        card.duracao = primeiraDuracao;
+      });
+      renderAulasVariadas();
     }
-    verificarCamposPreenchidos();
   }
 
-  // Processar dados das aulas
+  // ==================== PROCESSAR DADOS DAS AULAS ====================
   function processarAulas() {
     state.aulas = [];
     
@@ -473,35 +609,27 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (materia && horario && duracao) {
         state.selectedDays.sort((a, b) => a - b).forEach(day => {
-          // Sempre definir professor como "A definir" inicialmente
           state.aulas.push({
             data: day,
             materia: materia,
             horario: horario,
             duracao: duracao,
-            professor: "A definir" // Valor padrão
+            professor: "A definir",
+            estudante: null
           });
         });
       }
     } else {
       // Aulas Variadas
-      state.selectedDays.sort((a, b) => a - b).forEach((day, index) => {
-        const materiaElement = document.querySelector(`.select-materia[data-index="${index}"]`);
-        const horarioElement = document.querySelector(`.input-horario[data-index="${index}"]`);
-        const duracaoElement = document.querySelector(`.select-duracao[data-index="${index}"]`);
-        
-        const materia = materiaElement ? materiaElement.value : '';
-        const horario = horarioElement ? horarioElement.value : '';
-        const duracao = duracaoElement ? duracaoElement.value : '';
-        
-        if (materia && horario && duracao) {
-          // Sempre definir professor como "A definir" inicialmente
+      state.cardsAulasVariadas.forEach(card => {
+        if (card.materia && card.horario && card.duracao) {
           state.aulas.push({
-            data: day,
-            materia: materia,
-            horario: horario,
-            duracao: duracao,
-            professor: "A definir" // Valor padrão
+            data: card.day,
+            materia: card.materia,
+            horario: card.horario,
+            duracao: card.duracao,
+            professor: "A definir",
+            estudante: null
           });
         }
       });
@@ -510,39 +638,551 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Aulas processadas:", state.aulas);
   }
 
-  // Preencher tabela de confirmação
+  // ==================== SEÇÃO 5: PREENCHER TABELA DE CONFIRMAÇÃO ====================
   function fillConfirmationTable() {
     const tbody = document.getElementById("tabela-corpo");
-    tbody.innerHTML = '';
+    tbody.innerHTML = "";
 
     state.aulas.forEach(aula => {
-      const tr = document.createElement('tr');
+      const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="p-2">${formatDate(aula.data)}</td>
-        <td class="p-2">${aula.horario || '--'}</td>
-        <td class="p-2">${aula.duracao || '--'}</td>
-        <td class="p-2">${aula.materia || '--'}</td>
+        <td class="p-2">${aula.horario || "--"}</td>
+        <td class="p-2">${aula.duracao || "--"}</td>
+        <td class="p-2">${aula.materia || "--"}</td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  // Preencher tabela de confirmação de aulas com professores
-  function fillAulasConfirmacaoTable() {
-    const tbody = document.getElementById("tabela-corpo-aulas");
-    tbody.innerHTML = '';
+  // ==================== SEÇÃO 6: CONFIRMAÇÃO DA EQUIPE ====================
+  async function setupProfessores() {
+    const btnSemPref = document.getElementById("sem-preferencia");
+    const btnManter = document.getElementById("manter-professores");
+    const loadingProfessores = document.getElementById("loading-professores");
+    const professoresTableContainer = document.getElementById("professores-table-container");
+    const btnAvancar = document.getElementById("equipe-avancar");
+    
+    // Resetar estado
+    btnSemPref.classList.remove("bg-orange-500", "text-white");
+    btnManter.classList.remove("bg-orange-500", "text-white");
+    professoresTableContainer.classList.add("hidden");
+    btnAvancar.disabled = true;
+    state.manterProfessores = false;
 
-    state.aulas.forEach(aula => {
-      const tr = document.createElement('tr');
+    // Evento para "Não tenho preferência"
+    btnSemPref.addEventListener("click", () => {
+      console.log("Clicou em: Não tenho preferência");
+      
+      btnSemPref.classList.add("bg-orange-500", "text-white");
+      btnManter.classList.remove("bg-orange-500", "text-white");
+      professoresTableContainer.classList.add("hidden");
+      
+      // Definir todos os professores como "A definir"
+      state.aulas.forEach(aula => {
+        aula.professor = "A definir";
+      });
+      
+      state.manterProfessores = false;
+      btnAvancar.disabled = false;
+      
+      console.log("Professores atualizados para 'A definir':", state.aulas);
+    });
+
+    // Evento para "Manter professores"
+    btnManter.addEventListener("click", async () => {
+      console.log("Clicou em: Manter professores");
+      
+      btnManter.classList.add("bg-orange-500", "text-white");
+      btnSemPref.classList.remove("bg-orange-500", "text-white");
+      
+      // Mostrar loading
+      loadingProfessores.classList.remove("hidden");
+      professoresTableContainer.classList.add("hidden");
+      
+      try {
+        // Buscar aulas anteriores do cliente
+        const querySnapshot = await db.collection("BancoDeAulas")
+          .where("cpf", "==", state.cpf)
+          .orderBy("timestamp", "desc")
+          .limit(5) // Buscar últimas 5 contratações
+          .get();
+
+        if (!querySnapshot.empty) {
+          // Processar professores de todas as contratações
+          const professoresPorMateria = {};
+          
+          querySnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.aulas) {
+              data.aulas.forEach(aula => {
+                if (aula.materia && aula.professor && aula.professor !== "A definir") {
+                  if (!professoresPorMateria[aula.materia]) {
+                    professoresPorMateria[aula.materia] = new Set();
+                  }
+                  professoresPorMateria[aula.materia].add(aula.professor);
+                }
+              });
+            }
+          });
+
+          // Converter Set para Array
+          for (let materia in professoresPorMateria) {
+            professoresPorMateria[materia] = Array.from(professoresPorMateria[materia]);
+          }
+
+          state.professoresAnteriores = professoresPorMateria;
+          
+          // Esconder loading e mostrar tabela
+          loadingProfessores.classList.add("hidden");
+          professoresTableContainer.classList.remove("hidden");
+          
+          // Preencher tabela de professores editável
+          fillProfessoresTable();
+          
+          state.manterProfessores = true;
+          btnAvancar.disabled = false;
+          
+        } else {
+          console.log("Nenhuma contratação anterior encontrada");
+          loadingProfessores.classList.add("hidden");
+          showModalProfessoresNaoEncontrados();
+          
+          // Definir todos os professores como "A definir"
+          state.aulas.forEach(aula => {
+            aula.professor = "A definir";
+          });
+          
+          state.manterProfessores = false;
+          btnAvancar.disabled = false;
+        }
+      } catch (error) {
+        console.error("Erro ao buscar professores:", error);
+        loadingProfessores.classList.add("hidden");
+        showModalProfessoresNaoEncontrados();
+        
+        // Definir todos os professores como "A definir"
+        state.aulas.forEach(aula => {
+          aula.professor = "A definir";
+        });
+        
+        state.manterProfessores = false;
+        btnAvancar.disabled = false;
+      }
+    });
+  }
+
+  // Preencher tabela de professores editável
+  function fillProfessoresTable() {
+    const tbody = document.getElementById("tabela-professores-corpo");
+    tbody.innerHTML = "";
+
+    state.aulas.forEach((aula, index) => {
+      const tr = document.createElement("tr");
+      
+      // Obter lista de professores para esta matéria
+      const professoresParaMateria = state.professoresAnteriores[aula.materia] || ["A definir"];
+      
+      // Criar options para o select
+      let optionsHTML = `<option value="">Selecione um professor</option>`;
+      professoresParaMateria.forEach(professor => {
+        const selected = aula.professor === professor ? "selected" : "";
+        optionsHTML += `<option value="${professor}" ${selected}>${professor}</option>`;
+      });
+      
       tr.innerHTML = `
         <td class="p-2">${formatDate(aula.data)}</td>
-        <td class="p-2">${aula.horario || '--'}</td>
-        <td class="p-2">${aula.duracao || '--'}</td>
-        <td class="p-2">${aula.materia || '--'}</td>
-        <td class="p-2">${aula.professor || 'A definir'}</td>
+        <td class="p-2">${aula.horario || "--"}</td>
+        <td class="p-2">${aula.duracao || "--"}</td>
+        <td class="p-2">${aula.materia || "--"}</td>
+        <td class="p-2">
+          <select class="select-professor-editavel w-full rounded border px-2 py-1" data-index="${index}">
+            ${optionsHTML}
+          </select>
+        </td>
       `;
       tbody.appendChild(tr);
     });
+
+    // Adicionar eventos aos selects
+    document.querySelectorAll(".select-professor-editavel").forEach(select => {
+      select.addEventListener("change", (e) => {
+        const index = parseInt(e.target.dataset.index);
+        state.aulas[index].professor = e.target.value;
+        console.log(`Professor atualizado para aula ${index}: ${e.target.value}`);
+      });
+    });
+  }
+
+  // ==================== SEÇÃO 7: CONFIRMAÇÃO DAS AULAS (COM ESTUDANTES) ====================
+  async function setupEstudantes() {
+    const loadingEstudantes = document.getElementById("loading-estudantes");
+    const btnAvancar = document.getElementById("confirmacao-aulas-avancar");
+    
+    // Mostrar loading
+    loadingEstudantes.classList.remove("hidden");
+    btnAvancar.disabled = true;
+    
+    try {
+      // Buscar estudantes do cliente
+      const querySnapshot = await db.collection("cadastroClientes")
+        .where("cpf", "==", state.cpf)
+        .get();
+      
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        const userData = doc.data();
+        
+        // Capturar estudantes
+        state.estudantes = userData.estudantes || [];
+        console.log("Estudantes encontrados:", state.estudantes);
+        
+        // Esconder loading
+        loadingEstudantes.classList.add("hidden");
+        
+        // Preencher tabela com estudantes
+        fillAulasConfirmacaoTable();
+        
+        // Verificar se todos os estudantes foram atribuídos
+        verificarEstudantesAtribuidos();
+      } else {
+        console.log("Cliente não encontrado");
+        loadingEstudantes.classList.add("hidden");
+        // Criar array vazio de estudantes
+        state.estudantes = [];
+        fillAulasConfirmacaoTable();
+      }
+    } catch (error) {
+      console.error("Erro ao buscar estudantes:", error);
+      loadingEstudantes.classList.add("hidden");
+      state.estudantes = [];
+      fillAulasConfirmacaoTable();
+    }
+  }
+
+  // Preencher tabela de confirmação de aulas com professores e estudantes
+  function fillAulasConfirmacaoTable() {
+    const tbody = document.getElementById("tabela-corpo-aulas");
+    tbody.innerHTML = "";
+
+    // Verificar se há estudantes
+    const temEstudantes = state.estudantes && state.estudantes.length > 0;
+    
+    state.aulas.forEach((aula, index) => {
+      const tr = document.createElement("tr");
+      
+      // Se não houver estudantes ou apenas um, usar valor padrão
+      let estudanteAtual = "Escolha um estudante";
+      let estudanteClass = "celula-estudante-vazio";
+      
+      if (state.estudantes.length === 1 && aula.estudante === null) {
+        // Se houver apenas um estudante, atribuir automaticamente
+        estudanteAtual = state.estudantes[0].nome;
+        estudanteClass = "";
+        aula.estudante = state.estudantes[0].nome;
+      } else if (aula.estudante) {
+        estudanteAtual = aula.estudante;
+        estudanteClass = "";
+      }
+      
+      // Criar options para o select de estudantes
+      let optionsHTML = `<option value="">Escolha um estudante</option>`;
+      state.estudantes.forEach(estudante => {
+        const selected = aula.estudante === estudante.nome ? "selected" : "";
+        optionsHTML += `<option value="${estudante.nome}" ${selected}>${estudante.nome}</option>`;
+      });
+      
+      // Se não houver estudantes, mostrar mensagem
+      const estudanteCellHTML = temEstudantes 
+        ? `<select class="select-estudante w-full rounded border px-2 py-1" data-index="${index}">
+             ${optionsHTML}
+           </select>`
+        : `<span class="text-gray-500">Nenhum estudante cadastrado</span>`;
+      
+      tr.innerHTML = `
+        <td class="p-2">${formatDate(aula.data)}</td>
+        <td class="p-2">${aula.horario || "--"}</td>
+        <td class="p-2">${aula.duracao || "--"}</td>
+        <td class="p-2">${aula.materia || "--"}</td>
+        <td class="p-2">${aula.professor || "A definir"}</td>
+        <td class="p-2 ${estudanteClass}" id="estudante-cell-${index}">
+          ${estudanteCellHTML}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Adicionar eventos aos selects de estudantes
+    if (temEstudantes) {
+      document.querySelectorAll(".select-estudante").forEach(select => {
+        select.addEventListener("change", (e) => {
+          const index = parseInt(e.target.dataset.index);
+          const estudanteSelecionado = e.target.value;
+          
+          // Atualizar estado
+          state.aulas[index].estudante = estudanteSelecionado;
+          
+          // Atualizar aparência da célula
+          const estudanteCell = document.getElementById(`estudante-cell-${index}`);
+          if (estudanteSelecionado) {
+            estudanteCell.classList.remove("celula-estudante-vazio");
+          } else {
+            estudanteCell.classList.add("celula-estudante-vazio");
+          }
+          
+          // Verificar se todos os estudantes foram atribuídos
+          verificarEstudantesAtribuidos();
+        });
+      });
+    }
+  }
+
+  // Verificar se todos os estudantes foram atribuídos
+  function verificarEstudantesAtribuidos() {
+    const btnAvancar = document.getElementById("confirmacao-aulas-avancar");
+    
+    // Se não houver estudantes ou apenas um, habilitar o botão
+    if (state.estudantes.length <= 1) {
+      btnAvancar.disabled = false;
+      return;
+    }
+    
+    // Verificar se todas as aulas têm um estudante atribuído
+    const todosAtribuidos = state.aulas.every(aula => aula.estudante && aula.estudante !== "Escolha um estudante");
+    
+    btnAvancar.disabled = !todosAtribuidos;
+  }
+
+  // ==================== SEÇÃO 8: TERMOS ====================
+  function setupTermos() {
+    const termoAceite = document.getElementById("termo-aceite");
+    const avancarBtn = document.getElementById("termos-avancar");
+
+    function updateButtonState() {
+      avancarBtn.disabled = !termoAceite.checked;
+    }
+
+    termoAceite.addEventListener("change", updateButtonState);
+    
+    // Configurar eventos dos botões de termos
+    botaoTermoServico.addEventListener("click", () => {
+      modalTermoServico.classList.remove("hidden");
+    });
+    
+    botaoTermoPrivacidade.addEventListener("click", () => {
+      modalTermoPrivacidade.classList.remove("hidden");
+    });
+    
+    modalTermoServicoFechar.addEventListener("click", () => {
+      modalTermoServico.classList.add("hidden");
+    });
+    
+    modalTermoPrivacidadeFechar.addEventListener("click", () => {
+      modalTermoPrivacidade.classList.add("hidden");
+    });
+  }
+
+  // ==================== SEÇÃO 9: CONFIRMAÇÃO DE PAGAMENTO ====================
+  function setupPagamento() {
+    // Preencher tabela de pagamento
+    fillPagamentoTable();
+    
+    // Calcular valor total
+    calcularValorTotal();
+    
+    // Configurar eventos dos botões
+    document.getElementById("pagamento-cartao").addEventListener("click", async () => {
+      state.modoPagamento = "Cartão de crédito";
+      await salvarContratacao();
+      showSection(sections.fim);
+      
+      // Redirecionar para WhatsApp após 4 segundos
+      setTimeout(() => {
+        window.location.href = "https://wa.me/5582988862575?text=Olá! Gostaria de uma simulação no cartão de crédito";
+      }, 4000);
+    });
+    
+    document.getElementById("pagamento-pix").addEventListener("click", async () => {
+      state.modoPagamento = "Pagamento PIX";
+      await salvarContratacao();
+      showSection(sections.fim);
+      
+      // Redirecionar para WhatsApp após 4 segundos
+      setTimeout(() => {
+        window.location.href = "https://wa.me/5582988862575?text=Olá! Acabei de contratar um novo pacote de aulas! Gostaria de assinar o contrato para efetuarmos o pagamento";
+      }, 4000);
+    });
+  }
+
+  // Preencher tabela de pagamento
+  function fillPagamentoTable() {
+    const tbody = document.getElementById("tabela-corpo-pagamento");
+    tbody.innerHTML = "";
+
+    state.aulas.forEach(aula => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="p-2">${formatDate(aula.data)}</td>
+        <td class="p-2">${aula.horario || "--"}</td>
+        <td class="p-2">${aula.duracao || "--"}</td>
+        <td class="p-2">${aula.materia || "--"}</td>
+        <td class="p-2">${aula.professor || "A definir"}</td>
+        <td class="p-2">${aula.estudante || "Não atribuído"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Calcular valor total das aulas
+  function calcularValorTotal() {
+    const loadingCalculo = document.getElementById("loading-calculo-valor");
+    const valorTotalSpan = document.getElementById("valor-total");
+    const valorParcelaSpan = document.getElementById("valor-parcela");
+    
+    // Mostrar loading
+    loadingCalculo.classList.remove("hidden");
+    
+    setTimeout(() => {
+      let totalHoras = 0;
+      
+      // Converter duração para horas
+      state.aulas.forEach(aula => {
+        if (aula.duracao) {
+          if (aula.duracao === "1h") totalHoras += 1;
+          else if (aula.duracao === "1h30") totalHoras += 1.5;
+          else if (aula.duracao === "2h") totalHoras += 2;
+          else if (aula.duracao === "2h30") totalHoras += 2.5;
+          else if (aula.duracao === "3h") totalHoras += 3;
+        }
+      });
+      
+      // Calcular valor total (horas * 65)
+      const valorTotal = totalHoras * 65;
+      
+      // Calcular valor da parcela (com juros de 40%)
+      const valorComJuros = valorTotal * 1.4;
+      const valorParcela = valorComJuros / 3;
+      
+      // Atualizar elementos
+      valorTotalSpan.textContent = valorTotal.toFixed(2).replace(".", ",");
+      valorParcelaSpan.textContent = valorParcela.toFixed(2).replace(".", ",");
+      
+      // Esconder loading
+      loadingCalculo.classList.add("hidden");
+    }, 1000);
+  }
+
+  // ==================== FUNÇÕES DE BANCO DE DADOS ====================
+  
+  // Função para gerar código de contratação sequencial (4 números)
+  async function gerarCodigoContratacao() {
+    try {
+      // Buscar o último código usado
+      const querySnapshot = await db.collection("BancoDeAulas")
+        .orderBy("codigoContratacao", "desc")
+        .limit(1)
+        .get();
+
+      let proximoCodigo = "0001";
+      
+      if (!querySnapshot.empty) {
+        const ultimoCodigo = querySnapshot.docs[0].data().codigoContratacao;
+        
+        // Converter para número, incrementar e formatar com 4 dígitos
+        let numero = parseInt(ultimoCodigo);
+        numero++;
+        
+        // Garantir que não passe de 9999
+        if (numero > 9999) {
+          numero = 1; // Reiniciar se passar de 9999
+        }
+        
+        proximoCodigo = numero.toString().padStart(4, "0");
+      }
+      
+      return proximoCodigo;
+    } catch (error) {
+      console.error("Erro ao gerar código:", error);
+      return "0001";
+    }
+  }
+
+  // Função para gerar ID único para cada aula (código + duas letras)
+  function gerarIdsAulas(codigoContratacao, quantidadeAulas) {
+    const ids = [];
+    let letra1 = "A".charCodeAt(0);
+    let letra2 = "A".charCodeAt(0);
+    
+    for (let i = 0; i < quantidadeAulas; i++) {
+      // Gerar ID no formato: 0027AA, 0027AB, etc.
+      const id = codigoContratacao + String.fromCharCode(letra1) + String.fromCharCode(letra2);
+      ids.push(id);
+      
+      // Incrementar as letras
+      letra2++;
+      if (letra2 > "Z".charCodeAt(0)) {
+        letra2 = "A".charCodeAt(0);
+        letra1++;
+        
+        // Se passar de ZZ, reiniciar (não deve acontecer com até 9999 aulas)
+        if (letra1 > "Z".charCodeAt(0)) {
+          letra1 = "A".charCodeAt(0);
+        }
+      }
+    }
+    
+    return ids;
+  }
+
+  // Função para salvar a contratação no Firebase
+  async function salvarContratacao() {
+    try {
+      // Gerar código de contratação
+      state.codigoContratacao = await gerarCodigoContratacao();
+      
+      // Gerar IDs para cada aula
+      const idsAulas = gerarIdsAulas(state.codigoContratacao, state.aulas.length);
+      
+      // Data atual formatada
+      const dataAtual = new Date();
+      const dataFormatada = `${dataAtual.getDate().toString().padStart(2, "0")}/${(dataAtual.getMonth() + 1).toString().padStart(2, "0")}/${dataAtual.getFullYear()}`;
+      
+      // Preparar dados para salvar
+      const dadosContratacao = {
+        cpf: state.cpf,
+        nomeCliente: state.nomeCliente,
+        nomeAluno: state.nomeAluno,
+        dataContratacao: dataFormatada,
+        equipe: state.manterProfessores ? "Manter Equipe" : "Sem preferência de Equipe",
+        codigoContratacao: state.codigoContratacao,
+        modoPagamento: state.modoPagamento,
+        statusPagamento: state.statusPagamento,
+        statusAula: state.statusAula,
+        aulas: state.aulas.map((aula, index) => ({
+          id: idsAulas[index],
+          data: formatDate(aula.data),
+          horario: aula.horario,
+          duracao: aula.duracao,
+          materia: aula.materia,
+          professor: aula.professor,
+          estudante: aula.estudante
+        })),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      
+      // Salvar no Firebase
+      await db.collection("BancoDeAulas").add(dadosContratacao);
+      
+      console.log("✅ Dados salvos com sucesso no Firebase!");
+      console.log("Código da contratação:", state.codigoContratacao);
+      console.log("Modo de pagamento:", state.modoPagamento);
+      
+      return true;
+    } catch (error) {
+      console.error("❌ Erro ao salvar dados no Firebase:", error);
+      alert("Erro ao salvar os dados. Por favor, tente novamente.");
+      return false;
+    }
   }
 
   // Função para mostrar erro de CPF
@@ -565,232 +1205,9 @@ document.addEventListener("DOMContentLoaded", () => {
     modalProfessoresNaoEncontrados.classList.remove("hidden");
   }
 
-  // Configurar professores
-  async function setupProfessores() {
-    const btnSemPref = document.getElementById("sem-preferencia");
-    const btnManter = document.getElementById("manter-professores");
-    const lista = document.getElementById("professores-lista");
-    const info = document.getElementById("professores-info");
-    const btnAvancar = document.getElementById("equipe-avancar");
-    
-    // Resetar estado
-    btnSemPref.classList.remove("bg-orange-500", "text-white");
-    btnManter.classList.remove("bg-orange-500", "text-white");
-    lista.classList.remove("expanded");
-    info.classList.remove("expanded");
-    btnAvancar.disabled = true;
-    state.manterProfessores = false;
-
-    // Atualizar nome do aluno no texto
-    document.getElementById("nome-aluno-professores").textContent = state.nomeAluno;
-
-    // Evento para "Não tenho preferência"
-    btnSemPref.addEventListener('click', () => {
-      console.log("Clicou em: Não tenho preferência");
-      
-      btnSemPref.classList.add('bg-orange-500', 'text-white');
-      btnManter.classList.remove('bg-orange-500', 'text-white');
-      lista.classList.remove("expanded");
-      info.classList.remove("expanded");
-      
-      // Definir todos os professores como "A definir"
-      state.aulas.forEach(aula => {
-        aula.professor = "A definir";
-      });
-      
-      state.manterProfessores = false;
-      btnAvancar.disabled = false;
-      
-      console.log("Professores atualizados para 'A definir':", state.aulas);
-    });
-
-    // Evento para "Manter professores"
-    btnManter.addEventListener('click', async () => {
-      console.log("Clicou em: Manter professores");
-      
-      btnManter.classList.add('bg-orange-500', 'text-white');
-      btnSemPref.classList.remove('bg-orange-500', 'text-white');
-      
-      try {
-        // Buscar aulas anteriores do cliente
-        const querySnapshot = await db.collection("BancoDeAulas")
-          .where("cpf", "==", state.cpf)
-          .orderBy("timestamp", "desc")
-          .limit(1)
-          .get();
-
-        if (!querySnapshot.empty) {
-          const ultimaContratacao = querySnapshot.docs[0].data();
-          console.log("Última contratação encontrada:", ultimaContratacao);
-          
-          const professoresUnicos = {};
-          
-          // Extrair matérias e professores únicos
-          ultimaContratacao.aulas.forEach(aula => {
-            if (aula.materia && aula.professor && aula.professor !== "A definir") {
-              professoresUnicos[aula.materia] = aula.professor;
-            }
-          });
-
-          if (Object.keys(professoresUnicos).length > 0) {
-            console.log("Professores únicos encontrados:", professoresUnicos);
-            
-            // Atualizar state.professoresDB com os professores encontrados
-            state.professoresDB = Object.entries(professoresUnicos).map(([materia, nome]) => ({ materia, nome }));
-            
-            lista.classList.add("expanded");
-            info.classList.add("expanded");
-            state.manterProfessores = true;
-            renderProfessores();
-            
-            // Atualizar aulas com os professores correspondentes
-            state.aulas.forEach(aula => {
-              if (professoresUnicos[aula.materia]) {
-                aula.professor = professoresUnicos[aula.materia];
-              } else {
-                aula.professor = "A definir";
-              }
-            });
-            
-            console.log("Aulas atualizadas com professores:", state.aulas);
-          } else {
-            console.log("Nenhum professor único encontrado");
-            showModalProfessoresNaoEncontrados();
-            
-            // Definir todos os professores como "A definir"
-            state.aulas.forEach(aula => {
-              aula.professor = "A definir";
-            });
-            
-            state.manterProfessores = false;
-          }
-        } else {
-          console.log("Nenhuma contratação anterior encontrada");
-          showModalProfessoresNaoEncontrados();
-          
-          // Definir todos os professores como "A definir"
-          state.aulas.forEach(aula => {
-            aula.professor = "A definir";
-          });
-          
-          state.manterProfessores = false;
-        }
-      } catch (error) {
-        console.error("Erro ao buscar professores:", error);
-        showModalProfessoresNaoEncontrados();
-        
-        // Definir todos os professores como "A definir"
-        state.aulas.forEach(aula => {
-          aula.professor = "A definir";
-        });
-        
-        state.manterProfessores = false;
-      }
-      
-      btnAvancar.disabled = false;
-    });
-  }
-
-  function renderProfessores() {
-    const container = document.getElementById("professores-columns");
-    container.innerHTML = '';
-    
-    // Obter lista de matérias únicas selecionadas
-    const materiasSelecionadas = [...new Set(state.aulas.map(aula => aula.materia))];
-    
-    // Filtrar professores apenas pelas matérias selecionadas
-    const professoresFiltrados = state.professoresDB.filter(prof => 
-      materiasSelecionadas.includes(prof.materia)
-    );
-    
-    if (professoresFiltrados.length === 0) {
-      container.innerHTML = '<p class="text-gray-500 text-center">Nenhum professor encontrado para as matérias selecionadas.</p>';
-      return;
-    }
-    
-    professoresFiltrados.forEach(prof => {
-      const div = document.createElement('div');
-      div.className = 'flex justify-between items-center border-b border-gray-200 pb-1';
-      div.innerHTML = `
-        <span class="text-gray-700">${prof.materia} - ${prof.nome}</span>
-        <button class="text-red-500 remover-professor hover:text-red-700">×</button>
-      `;
-      
-      div.querySelector('.remover-professor').addEventListener('click', () => {
-        div.remove();
-        // Atualizar state.professoresDB removendo o professor
-        state.professoresDB = state.professoresDB.filter(p => 
-          !(p.materia === prof.materia && p.nome === prof.nome)
-        );
-        
-        // Atualizar aulas para essa matéria
-        state.aulas.forEach(aula => {
-          if (aula.materia === prof.materia) {
-            aula.professor = "A definir";
-          }
-        });
-      });
-      
-      container.appendChild(div);
-    });
-  }
-
-  // Função para gerar código de contratação sequencial
-  async function gerarCodigoContratacao() {
-    try {
-      // Buscar o último código usado
-      const querySnapshot = await db.collection("BancoDeAulas")
-        .orderBy("codigoContratacao", "desc")
-        .limit(1)
-        .get();
-
-      let proximoCodigo = "AAA";
-      
-      if (!querySnapshot.empty) {
-        const ultimoCodigo = querySnapshot.docs[0].data().codigoContratacao;
-        proximoCodigo = gerarProximoCodigo(ultimoCodigo);
-      }
-      
-      return proximoCodigo;
-    } catch (error) {
-      console.error("Erro ao gerar código:", error);
-      return "AAA";
-    }
-  }
-
-  function gerarProximoCodigo(codigoAtual) {
-    let chars = codigoAtual.split('');
-    
-    for (let i = chars.length - 1; i >= 0; i--) {
-      if (chars[i] !== 'Z') {
-        chars[i] = String.fromCharCode(chars[i].charCodeAt(0) + 1);
-        break;
-      } else {
-        chars[i] = 'A';
-        if (i === 0) {
-          chars.unshift('A');
-        }
-      }
-    }
-    
-    return chars.join('');
-  }
-
-  // Configurar termos
-  function setupTermos() {
-    const termoUso = document.getElementById("termo-uso");
-    const termoPriv = document.getElementById("termo-privacidade");
-    const avancarBtn = document.getElementById("termos-avancar");
-
-    function updateButtonState() {
-      avancarBtn.disabled = !(termoUso.checked && termoPriv.checked);
-    }
-
-    termoUso.addEventListener('change', updateButtonState);
-    termoPriv.addEventListener('change', updateButtonState);
-  }
-
-  // Event Listeners
+  // ==================== EVENT LISTENERS PRINCIPAIS ====================
+  
+  // Navegação entre seções
   document.getElementById("apresentacao-avancar").addEventListener("click", () => {
     showSection(sections.verificacao);
   });
@@ -809,11 +1226,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Formatar CPF para exibição
     if (value.length > 3 && value.length <= 6) {
-      e.target.value = value.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+      e.target.value = value.replace(/(\d{3})(\d{1,3})/, "$1.$2");
     } else if (value.length > 6 && value.length <= 9) {
-      e.target.value = value.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+      e.target.value = value.replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3");
     } else if (value.length > 9) {
-      e.target.value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+      e.target.value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, "$1.$2.$3-$4");
     }
     
     if (value.length === 11) {
@@ -850,7 +1267,6 @@ document.addEventListener("DOMContentLoaded", () => {
           
           // Atualizar elementos HTML com nomes dos estudantes
           document.getElementById("nome-aluno-calendario").textContent = state.nomeAluno;
-          document.getElementById("nome-aluno-professores").textContent = state.nomeAluno;
           
           // Atualizar nome do cliente
           document.getElementById("nome-cliente-calendario").textContent = state.nomeCliente;
@@ -867,7 +1283,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("❌ Erro detalhado ao verificar CPF:", error);
         
         // Mostrar erro específico
-        if (error.code === 'permission-denied') {
+        if (error.code === "permission-denied") {
           showCpfError("Erro de permissão no banco de dados. Contate o suporte.");
         } else {
           showCpfError();
@@ -892,6 +1308,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("selecao-voltar").addEventListener("click", () => {
     // Limpar dias selecionados e voltar
     state.selectedDays = [];
+    state.cardsAulasVariadas = [];
     showSection(sections.calendario);
     initCalendar(); // Re-renderizar calendário para limpar seleções
   });
@@ -900,7 +1317,7 @@ document.addEventListener("DOMContentLoaded", () => {
     processarAulas();
     
     // Verificar se todas as aulas foram processadas corretamente
-    if (state.aulas.length === state.selectedDays.length) {
+    if (state.aulas.length > 0) {
       fillConfirmationTable();
       showSection(sections.calendarioConfirmacao);
     } else {
@@ -926,8 +1343,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Garantir que os professores estejam atualizados antes de avançar
     console.log("Avançando da seção de equipe. Aulas atuais:", state.aulas);
     
-    fillAulasConfirmacaoTable();
-    showSection(sections.selecaoAulasConfirmacao);
+    showSection(sections.confirmacaoAulas);
+    await setupEstudantes();
   });
 
   document.getElementById("confirmacao-aulas-voltar").addEventListener("click", () => {
@@ -935,82 +1352,30 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("confirmacao-aulas-avancar").addEventListener("click", async () => {
-    // Gerar código de contratação
-    state.codigoContratacao = await gerarCodigoContratacao();
-    
-    // Data atual formatada
-    const dataAtual = new Date();
-    const dataFormatada = `${dataAtual.getDate().toString().padStart(2, '0')}/${(dataAtual.getMonth() + 1).toString().padStart(2, '0')}/${dataAtual.getFullYear()}`;
-    
-    // Tipo de equipe selecionada
-    const tipoEquipe = state.manterProfessores ? "Manter Equipe" : "Sem preferência de Equipe";
-    
-    // Log no console
-    console.log("=== DADOS DA CONTRATAÇÃO ===");
-    console.log("CPF Contratação:", state.cpf);
-    console.log("Nome Contratante:", state.nomeCliente);
-    console.log("Nome(s) do(s) Estudante(s):", state.nomeAluno);
-    console.log("Data contratação:", dataFormatada);
-    console.log("Equipe:", tipoEquipe);
-    console.log("Código da Contratação:", state.codigoContratacao);
-    console.log("=== DETALHES DAS AULAS ===");
-    state.aulas.forEach(aula => {
-      console.log(`Data: ${formatDate(aula.data)}, Hora: ${aula.horario}, Duração: ${aula.duracao}, Matéria: ${aula.materia}, Professor: ${aula.professor}`);
-    });
+    // Verificar se todos os estudantes foram atribuídos (se houver mais de um)
+    if (state.estudantes.length > 1) {
+      const todosAtribuidos = state.aulas.every(aula => aula.estudante && aula.estudante !== "Escolha um estudante");
+      if (!todosAtribuidos) {
+        alert("Por favor, atribua um estudante para cada aula antes de continuar.");
+        return;
+      }
+    }
     
     showSection(sections.termos);
     setupTermos();
   });
 
   document.getElementById("termos-voltar").addEventListener("click", () => {
-    showSection(sections.selecaoAulasConfirmacao);
+    showSection(sections.confirmacaoAulas);
   });
 
   document.getElementById("termos-avancar").addEventListener("click", async () => {
-    try {
-      // Data atual
-      const dataAtual = new Date();
-      const dataFormatada = `${dataAtual.getDate().toString().padStart(2, '0')}/${(dataAtual.getMonth() + 1).toString().padStart(2, '0')}/${dataAtual.getFullYear()}`;
-      
-      // Tipo de equipe selecionada
-      const tipoEquipe = state.manterProfessores ? "Manter Equipe" : "Sem preferência de Equipe";
-      
-      // Preparar dados para salvar
-      const dadosContratacao = {
-        cpf: state.cpf,
-        nomeCliente: state.nomeCliente,
-        nomeAluno: state.nomeAluno,
-        dataContratacao: dataFormatada,
-        equipe: tipoEquipe,
-        codigoContratacao: state.codigoContratacao,
-        aulas: state.aulas.map(aula => ({
-          data: formatDate(aula.data),
-          horario: aula.horario,
-          duracao: aula.duracao,
-          materia: aula.materia,
-          professor: aula.professor
-        })),
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      
-      // Salvar no Firebase
-      await db.collection("BancoDeAulas").add(dadosContratacao);
-      
-      console.log("✅ Dados salvos com sucesso no Firebase!");
-      
-      showSection(sections.fim);
-      
-      // Redirecionar para WhatsApp após 4 segundos (COMENTADO POR ENQUANTO)
-      /*
-      setTimeout(() => {
-        window.location.href = "https://wa.me/82988862575?text=Olá Masters! Acabei de realizar a contratação dos dias de aula!";
-      }, 4000);
-      */
-      
-    } catch (error) {
-      console.error("❌ Erro ao salvar dados no Firebase:", error);
-      alert("Erro ao salvar os dados. Por favor, tente novamente.");
-    }
+    showSection(sections.confirmacaoPagamento);
+    setupPagamento();
+  });
+
+  document.getElementById("pagamento-voltar").addEventListener("click", () => {
+    showSection(sections.termos);
   });
 
   // Inicialização
