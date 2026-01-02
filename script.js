@@ -49,6 +49,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalFechar = document.getElementById("modal-fechar");
   const modalAplicar = document.getElementById("modal-aplicar");
 
+  // Modal para professores não encontrados
+  const modalProfessoresNaoEncontrados = document.getElementById("modal-professores-nao-encontrados");
+  const modalProfessoresOk = document.getElementById("modal-professores-ok");
+
   // Estado global
   const state = {
     cpf: "",
@@ -78,8 +82,37 @@ document.addEventListener("DOMContentLoaded", () => {
     tipoAgendamento: null, // 'padrao' ou 'variadas'
     manterProfessores: false,
     nomeCliente: "", // Adicionado para armazenar o nome do cliente
+    nomeAluno: "", // Adicionado para armazenar o nome do(s) aluno(s)
     codigoContratacao: "" // Adicionado para armazenar o código
   };
+
+  // Função para formatar lista de nomes de estudantes
+  function formatarNomesEstudantes(estudantes) {
+    if (!estudantes || estudantes.length === 0) {
+      return "o aluno";
+    }
+    
+    // Extrair apenas os nomes
+    const nomes = estudantes.map(est => est.nome).filter(nome => nome && nome.trim() !== "");
+    
+    if (nomes.length === 0) {
+      return "o aluno";
+    }
+    
+    if (nomes.length === 1) {
+      return nomes[0];
+    }
+    
+    if (nomes.length === 2) {
+      return `${nomes[0]} e ${nomes[1]}`;
+    }
+    
+    // Para 3 ou mais estudantes
+    const todosMenosUltimo = nomes.slice(0, -1);
+    const ultimo = nomes[nomes.length - 1];
+    
+    return `${todosMenosUltimo.join(', ')} e ${ultimo}`;
+  }
 
   // Funções para mostrar/ocultar loading
   function showLoading() {
@@ -322,6 +355,13 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.classList.add("hidden");
   });
 
+  // Configurar evento para modal de professores não encontrados
+  modalProfessoresOk.addEventListener("click", () => {
+    modalProfessoresNaoEncontrados.classList.add("hidden");
+    // Habilitar botão avançar após fechar o modal
+    document.getElementById("equipe-avancar").disabled = false;
+  });
+
   function verificarCamposPreenchidos() {
     const btnAvancar = document.getElementById("selecao-avancar");
     
@@ -433,17 +473,13 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (materia && horario && duracao) {
         state.selectedDays.sort((a, b) => a - b).forEach(day => {
-          // Encontrar professor correspondente à matéria
-          const professor = state.manterProfessores ? 
-            (state.professoresDB.find(p => p.materia === materia)?.nome || "A definir") : 
-            "A definir";
-            
+          // Sempre definir professor como "A definir" inicialmente
           state.aulas.push({
             data: day,
             materia: materia,
             horario: horario,
             duracao: duracao,
-            professor: professor
+            professor: "A definir" // Valor padrão
           });
         });
       }
@@ -459,21 +495,19 @@ document.addEventListener("DOMContentLoaded", () => {
         const duracao = duracaoElement ? duracaoElement.value : '';
         
         if (materia && horario && duracao) {
-          // Encontrar professor correspondente à matéria
-          const professor = state.manterProfessores ? 
-            (state.professoresDB.find(p => p.materia === materia)?.nome || "A definir") : 
-            "A definir";
-          
+          // Sempre definir professor como "A definir" inicialmente
           state.aulas.push({
             data: day,
             materia: materia,
             horario: horario,
             duracao: duracao,
-            professor: professor
+            professor: "A definir" // Valor padrão
           });
         }
       });
     }
+    
+    console.log("Aulas processadas:", state.aulas);
   }
 
   // Preencher tabela de confirmação
@@ -505,7 +539,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td class="p-2">${aula.horario || '--'}</td>
         <td class="p-2">${aula.duracao || '--'}</td>
         <td class="p-2">${aula.materia || '--'}</td>
-        <td class="p-2">${aula.professor || '--'}</td>
+        <td class="p-2">${aula.professor || 'A definir'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -526,6 +560,11 @@ document.addEventListener("DOMContentLoaded", () => {
     cpfArea.appendChild(errorSpan);
   }
 
+  // Função para mostrar modal de professores não encontrados
+  function showModalProfessoresNaoEncontrados() {
+    modalProfessoresNaoEncontrados.classList.remove("hidden");
+  }
+
   // Configurar professores
   async function setupProfessores() {
     const btnSemPref = document.getElementById("sem-preferencia");
@@ -542,21 +581,33 @@ document.addEventListener("DOMContentLoaded", () => {
     btnAvancar.disabled = true;
     state.manterProfessores = false;
 
+    // Atualizar nome do aluno no texto
+    document.getElementById("nome-aluno-professores").textContent = state.nomeAluno;
+
+    // Evento para "Não tenho preferência"
     btnSemPref.addEventListener('click', () => {
+      console.log("Clicou em: Não tenho preferência");
+      
       btnSemPref.classList.add('bg-orange-500', 'text-white');
       btnManter.classList.remove('bg-orange-500', 'text-white');
       lista.classList.remove("expanded");
       info.classList.remove("expanded");
-      state.manterProfessores = false;
-      btnAvancar.disabled = false;
       
       // Definir todos os professores como "A definir"
       state.aulas.forEach(aula => {
         aula.professor = "A definir";
       });
+      
+      state.manterProfessores = false;
+      btnAvancar.disabled = false;
+      
+      console.log("Professores atualizados para 'A definir':", state.aulas);
     });
 
+    // Evento para "Manter professores"
     btnManter.addEventListener('click', async () => {
+      console.log("Clicou em: Manter professores");
+      
       btnManter.classList.add('bg-orange-500', 'text-white');
       btnSemPref.classList.remove('bg-orange-500', 'text-white');
       
@@ -570,6 +621,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!querySnapshot.empty) {
           const ultimaContratacao = querySnapshot.docs[0].data();
+          console.log("Última contratação encontrada:", ultimaContratacao);
+          
           const professoresUnicos = {};
           
           // Extrair matérias e professores únicos
@@ -580,6 +633,8 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           if (Object.keys(professoresUnicos).length > 0) {
+            console.log("Professores únicos encontrados:", professoresUnicos);
+            
             // Atualizar state.professoresDB com os professores encontrados
             state.professoresDB = Object.entries(professoresUnicos).map(([materia, nome]) => ({ materia, nome }));
             
@@ -596,37 +651,44 @@ document.addEventListener("DOMContentLoaded", () => {
                 aula.professor = "A definir";
               }
             });
+            
+            console.log("Aulas atualizadas com professores:", state.aulas);
           } else {
-            showProfessoresNaoEncontrados();
+            console.log("Nenhum professor único encontrado");
+            showModalProfessoresNaoEncontrados();
+            
+            // Definir todos os professores como "A definir"
+            state.aulas.forEach(aula => {
+              aula.professor = "A definir";
+            });
+            
+            state.manterProfessores = false;
           }
         } else {
-          showProfessoresNaoEncontrados();
+          console.log("Nenhuma contratação anterior encontrada");
+          showModalProfessoresNaoEncontrados();
+          
+          // Definir todos os professores como "A definir"
+          state.aulas.forEach(aula => {
+            aula.professor = "A definir";
+          });
+          
+          state.manterProfessores = false;
         }
       } catch (error) {
         console.error("Erro ao buscar professores:", error);
-        showProfessoresNaoEncontrados();
+        showModalProfessoresNaoEncontrados();
+        
+        // Definir todos os professores como "A definir"
+        state.aulas.forEach(aula => {
+          aula.professor = "A definir";
+        });
+        
+        state.manterProfessores = false;
       }
       
       btnAvancar.disabled = false;
     });
-  }
-
-  // Função para mostrar mensagem quando professores não forem encontrados
-  function showProfessoresNaoEncontrados() {
-    const lista = document.getElementById("professores-lista");
-    const info = document.getElementById("professores-info");
-    
-    lista.classList.remove("expanded");
-    info.classList.remove("expanded");
-    
-    // Mostrar mensagem informativa
-    alert("Ops! não encontramos os últimos professores do seu atendimento, mas não se preocupe, vamos contatar a central Master de aulas e em breve manteremos os professores do nosso último ciclo de aulas, por enquanto, vamos por como 'A definir'.");
-    
-    // Definir todos os professores como "A definir"
-    state.aulas.forEach(aula => {
-      aula.professor = "A definir";
-    });
-    state.manterProfessores = false;
   }
 
   function renderProfessores() {
@@ -641,12 +703,17 @@ document.addEventListener("DOMContentLoaded", () => {
       materiasSelecionadas.includes(prof.materia)
     );
     
+    if (professoresFiltrados.length === 0) {
+      container.innerHTML = '<p class="text-gray-500 text-center">Nenhum professor encontrado para as matérias selecionadas.</p>';
+      return;
+    }
+    
     professoresFiltrados.forEach(prof => {
       const div = document.createElement('div');
       div.className = 'flex justify-between items-center border-b border-gray-200 pb-1';
       div.innerHTML = `
-        <span>${prof.materia} - ${prof.nome}</span>
-        <button class="text-red-500 remover-professor">×</button>
+        <span class="text-gray-700">${prof.materia} - ${prof.nome}</span>
+        <button class="text-red-500 remover-professor hover:text-red-700">×</button>
       `;
       
       div.querySelector('.remover-professor').addEventListener('click', () => {
@@ -655,6 +722,13 @@ document.addEventListener("DOMContentLoaded", () => {
         state.professoresDB = state.professoresDB.filter(p => 
           !(p.materia === prof.materia && p.nome === prof.nome)
         );
+        
+        // Atualizar aulas para essa matéria
+        state.aulas.forEach(aula => {
+          if (aula.materia === prof.materia) {
+            aula.professor = "A definir";
+          }
+        });
       });
       
       container.appendChild(div);
@@ -733,7 +807,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("input-cpf").addEventListener("input", async (e) => {
     let value = e.target.value.replace(/\D/g, "");
     
-    // Formatar CPF para exibição (opcional)
+    // Formatar CPF para exibição
     if (value.length > 3 && value.length <= 6) {
       e.target.value = value.replace(/(\d{3})(\d{1,3})/, '$1.$2');
     } else if (value.length > 6 && value.length <= 9) {
@@ -752,21 +826,35 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         console.log("🔍 Buscando CPF:", value);
         
-        // OPÇÃO 1: Buscar por campo "cpf" (mais comum)
+        // Buscar por campo "cpf"
         const querySnapshot = await db.collection("cadastroClientes")
           .where("cpf", "==", value)
           .get();
         
         hideLoading();
         
-        // Para OPÇÃO 1:
         if (!querySnapshot.empty) {
           const doc = querySnapshot.docs[0];
           const userData = doc.data();
           console.log("✅ Usuário encontrado:", userData);
           
+          // Capturar nome do cliente
           state.nomeCliente = userData.nome || userData.name || "Cliente";
+          
+          // Capturar estudantes (assumindo que o campo é "estudantes" como array de objetos)
+          const estudantes = userData.estudantes || [];
+          console.log("📚 Estudantes encontrados:", estudantes);
+          
+          // Formatar nomes dos estudantes
+          state.nomeAluno = formatarNomesEstudantes(estudantes);
+          
+          // Atualizar elementos HTML com nomes dos estudantes
+          document.getElementById("nome-aluno-calendario").textContent = state.nomeAluno;
+          document.getElementById("nome-aluno-professores").textContent = state.nomeAluno;
+          
+          // Atualizar nome do cliente
           document.getElementById("nome-cliente-calendario").textContent = state.nomeCliente;
+          
           document.getElementById("cpf-error")?.remove();
           showSection(sections.calendario);
           initCalendar();
@@ -774,7 +862,6 @@ document.addEventListener("DOMContentLoaded", () => {
           console.log("❌ CPF não encontrado na coleção cadastroClientes");
           showCpfError();
         }
-        
       } catch (error) {
         hideLoading();
         console.error("❌ Erro detalhado ao verificar CPF:", error);
@@ -835,14 +922,9 @@ document.addEventListener("DOMContentLoaded", () => {
     showSection(sections.calendarioConfirmacao);
   });
 
-  document.getElementById("equipe-avancar").addEventListener("click", () => {
-    // Atualizar as aulas com os professores selecionados
-    state.aulas.forEach(aula => {
-      const professorSelecionado = state.professoresDB.find(p => p.materia === aula.materia);
-      if (professorSelecionado) {
-        aula.professor = professorSelecionado.nome;
-      }
-    });
+  document.getElementById("equipe-avancar").addEventListener("click", async () => {
+    // Garantir que os professores estejam atualizados antes de avançar
+    console.log("Avançando da seção de equipe. Aulas atuais:", state.aulas);
     
     fillAulasConfirmacaoTable();
     showSection(sections.selecaoAulasConfirmacao);
@@ -867,6 +949,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("=== DADOS DA CONTRATAÇÃO ===");
     console.log("CPF Contratação:", state.cpf);
     console.log("Nome Contratante:", state.nomeCliente);
+    console.log("Nome(s) do(s) Estudante(s):", state.nomeAluno);
     console.log("Data contratação:", dataFormatada);
     console.log("Equipe:", tipoEquipe);
     console.log("Código da Contratação:", state.codigoContratacao);
@@ -895,7 +978,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Preparar dados para salvar
       const dadosContratacao = {
         cpf: state.cpf,
-        nome: state.nomeCliente,
+        nomeCliente: state.nomeCliente,
+        nomeAluno: state.nomeAluno,
         dataContratacao: dataFormatada,
         equipe: tipoEquipe,
         codigoContratacao: state.codigoContratacao,

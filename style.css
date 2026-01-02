@@ -233,6 +233,10 @@ body {
   background: #fff;
   border-radius: 8px;
   padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 #professores-columns button {
@@ -249,9 +253,14 @@ body {
   backdrop-filter: blur(8px);
 }
 
-/* -------------------- MODAL -------------------- */
-#modal-repeticao {
+/* -------------------- MODAIS -------------------- */
+#modal-repeticao,
+#modal-professores-nao-encontrados {
   z-index: 50;
+}
+
+#modal-professores-nao-encontrados .btn-orange {
+  margin-top: 10px;
 }
 
 /* -------------------- ANIMAÇÕES DE EXPANSÃO -------------------- */
@@ -367,5 +376,9 @@ body {
 
   .aulas-variadas-scroll {
     max-height: 40vh;
+  }
+  
+  .modal-professores-nao-encontrados .btn-orange {
+    width: 100%;
   }
 }

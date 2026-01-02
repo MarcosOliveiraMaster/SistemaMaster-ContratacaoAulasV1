@@ -69,7 +69,7 @@
       <div class="card-inner flex flex-col h-full">
         <div class="mb-4 text-center">
           <p class="text-comfortaa text-gray-700">Que bom vê-lo de volta <strong id="nome-cliente-calendario">Messias</strong>!
-            <br>Selecione os dias que teremos aulas para conitinuarmos o ciclo de estudos <strong> da Amora!</strong>
+            <br>Selecione os dias que teremos aulas para continuarmos o ciclo de estudos <strong id="nome-aluno-calendario">da Amora!</strong>
             </p>
         </div>
         
@@ -189,7 +189,7 @@
         </div>
 
         <div id="professores-info" class="expandable mb-4 text-center text-sm text-gray-600">
-          <p>Estes são os professores que ensinaram <strong>Amora</strong>.<br>Clique em avançar para mantermos os professores ou clicar no <strong>X</strong> para trocar algum professor específico.</p>
+          <p>Estes são os professores que ensinaram <strong id="nome-aluno-professores">Amora</strong>.<br>Clique em avançar para mantermos os professores ou clicar no <strong>X</strong> para trocar algum professor específico.</p>
         </div>
 
         <div id="professores-lista" class="expandable bg-white rounded-xl shadow p-4">
@@ -279,6 +279,19 @@
       <div class="flex gap-4 justify-end">
         <button id="modal-fechar" class="btn-white">Fechar</button>
         <button id="modal-aplicar" class="btn-orange">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para professores não encontrados -->
+  <div id="modal-professores-nao-encontrados" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <h4 class="font-semibold text-lg mb-4 text-orange-500">Professores Não Encontrados</h4>
+      <p id="modal-professores-mensagem" class="mb-6 text-gray-700">
+        Ops! não encontramos os últimos professores do seu atendimento, mas não se preocupe, vamos contatar a central Master de aulas e em breve manteremos os professores do nosso último ciclo de aulas, por enquanto, vamos por como 'A definir'.
+      </p>
+      <div class="flex justify-center">
+        <button id="modal-professores-ok" class="btn-orange">Ok</button>
       </div>
     </div>
   </div>
