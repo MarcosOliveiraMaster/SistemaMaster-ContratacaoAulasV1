@@ -88,7 +88,8 @@ document.addEventListener("DOMContentLoaded", () => {
     AulaEmergencial: "Não",
     ValorEquipe: 0,
     ValorPacote: 0,
-    lucroMaster: 0
+    lucroMaster: 0,
+    ObservacaoContratacao: ""
   };
 
   // ==================== FUNÇÕES AUXILIARES ====================
@@ -575,7 +576,8 @@ document.addEventListener("DOMContentLoaded", () => {
             RelatorioAula: "",
             ConfirmacaoProfessorAula: "",
             idProfessor: "",
-            ValorAula: horas * 35
+            ValorAula: horas * 35,
+            disponibilizarRrelatório: "nao"
           });
         });
       }
@@ -596,7 +598,8 @@ document.addEventListener("DOMContentLoaded", () => {
             RelatorioAula: "",
             ConfirmacaoProfessorAula: "",
             idProfessor: "",
-            ValorAula: horas * 35
+            ValorAula: horas * 35,
+            disponibilizarRrelatório: "nao"
           });
         }
       });
@@ -1029,6 +1032,7 @@ document.addEventListener("DOMContentLoaded", () => {
         cpf: state.cpf,
         nomeCliente: state.nomeCliente,
         nomeAluno: state.nomeAluno,
+        ObservacaoContratacao: state.ObservacaoContratacao,
         dataContratacao: dataFormatada,
         equipe: state.manterProfessores ? "Manter Equipe" : "Sem preferência de Equipe",
         codigoContratacao: state.codigoContratacao,
@@ -1053,8 +1057,10 @@ document.addEventListener("DOMContentLoaded", () => {
           RelatorioAula: aula.RelatorioAula,
           ConfirmacaoProfessorAula: aula.ConfirmacaoProfessorAula,
           idProfessor: aula.idProfessor,
-          ValorAula: aula.ValorAula
+          ValorAula: aula.ValorAula,
+          disponibilizarRrelatório: aula.disponibilizarRrelatório || "nao"
         })),
+
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       };
       
@@ -1067,7 +1073,8 @@ document.addEventListener("DOMContentLoaded", () => {
         AulaEmergencial: state.AulaEmergencial,
         ValorEquipe: state.ValorEquipe,
         ValorPacote: state.ValorPacote,
-        lucroMaster: state.lucroMaster
+        lucroMaster: state.lucroMaster,
+        ObservacaoContratacao: state.ObservacaoContratacao
       });
       return true;
     } catch (error) {
