@@ -737,13 +737,48 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
       
-      const professoresFiltrados = todosProfessores
+      const nomesUnicos = todosProfessores
         .filter(prof => prof !== "A definir" && prof !== "")
         .filter((prof, index, self) => self.indexOf(prof) === index)
         .slice(0, 20);
       
-      console.log("Professores encontrados (máx 20):", professoresFiltrados);
-      return professoresFiltrados.length > 0 ? professoresFiltrados : null;
+      console.log("Nomes de professores encontrados (máx 20):", nomesUnicos);
+      
+      // Buscar CPFs dos professores na coleção dataBaseProfessores
+      const professoresComCPF = [];
+      for (const nomeProfessor of nomesUnicos) {
+        try {
+          const profSnapshot = await db.collection("dataBaseProfessores")
+            .where("nome", "==", nomeProfessor)
+            .limit(1)
+            .get();
+          
+          if (!profSnapshot.empty) {
+            const profData = profSnapshot.docs[0].data();
+            professoresComCPF.push({
+              nome: nomeProfessor,
+              cpf: profData.cpf || ""
+            });
+            console.log(`✅ Professor encontrado: ${nomeProfessor} - CPF: ${profData.cpf || 'não encontrado'}`);
+          } else {
+            // Se não encontrar o CPF, adiciona sem CPF
+            professoresComCPF.push({
+              nome: nomeProfessor,
+              cpf: ""
+            });
+            console.log(`⚠️ Professor ${nomeProfessor} não encontrado no cadastro`);
+          }
+        } catch (err) {
+          console.error(`Erro ao buscar CPF do professor ${nomeProfessor}:`, err);
+          professoresComCPF.push({
+            nome: nomeProfessor,
+            cpf: ""
+          });
+        }
+      }
+      
+      console.log("Professores com CPF:", professoresComCPF);
+      return professoresComCPF.length > 0 ? professoresComCPF : null;
       
     } catch (error) {
       console.error("Erro ao buscar professores:", error);
@@ -757,10 +792,14 @@ document.addEventListener("DOMContentLoaded", () => {
     state.aulas.forEach((aula, index) => {
       const tr = document.createElement("tr");
       let optionsHTML = `<option value="">Selecione um professor</option>
-                         <option value="A definir" ${aula.professor === "A definir" ? "selected" : ""}>A definir</option>`;
+                         <option value="A definir" data-cpf="">A definir</option>`;
+      
+      // Adicionar professores da lista (agora são objetos com nome e cpf)
       state.professoresAnterioresLista.forEach(professor => {
-        const selected = aula.professor === professor ? "selected" : "";
-        optionsHTML += `<option value="${professor}" ${selected}>${professor}</option>`;
+        const nomeProfessor = professor.nome || professor;
+        const cpfProfessor = professor.cpf || "";
+        const selected = aula.professor === nomeProfessor ? "selected" : "";
+        optionsHTML += `<option value="${nomeProfessor}" data-cpf="${cpfProfessor}" ${selected}>${nomeProfessor}</option>`;
       });
       
       tr.innerHTML = `
@@ -780,7 +819,21 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".select-professor-editavel").forEach(select => {
       select.addEventListener("change", (e) => {
         const index = parseInt(e.target.dataset.index);
-        state.aulas[index].professor = e.target.value;
+        const nomeProfessor = e.target.value;
+        const cpfProfessor = e.target.options[e.target.selectedIndex].dataset.cpf || "";
+        
+        state.aulas[index].professor = nomeProfessor;
+        state.aulas[index].idProfessor = cpfProfessor;
+        
+        console.log(`Professor selecionado para aula ${index + 1}: ${nomeProfessor} (CPF: ${cpfProfessor})`);
+        console.table([{
+          Aula: index + 1,
+          Data: formatDate(state.aulas[index].data),
+          Horario: state.aulas[index].horario,
+          Materia: state.aulas[index].materia,
+          Professor: nomeProfessor,
+          CPF_Professor: cpfProfessor
+        }]);
       });
     });
   }
@@ -817,7 +870,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const temEstudantes = state.estudantes && state.estudantes.length > 0;
     const listaProfessores = state.professoresAnterioresLista && state.professoresAnterioresLista.length > 0 
       ? state.professoresAnterioresLista 
-      : ["A definir"];
+      : [{nome: "A definir", cpf: ""}];
     
     state.aulas.forEach((aula, index) => {
       if (state.estudantes.length === 1 && aula.estudante === null) {
@@ -833,8 +886,10 @@ document.addEventListener("DOMContentLoaded", () => {
       
       let optionsHTMLprofessores = `<option value="">Selecione um professor</option>`;
       listaProfessores.forEach(professor => {
-        const selected = aula.professor === professor ? "selected" : "";
-        optionsHTMLprofessores += `<option value="${professor}" ${selected}>${professor}</option>`;
+        const nomeProfessor = professor.nome || professor;
+        const cpfProfessor = professor.cpf || "";
+        const selected = aula.professor === nomeProfessor ? "selected" : "";
+        optionsHTMLprofessores += `<option value="${nomeProfessor}" data-cpf="${cpfProfessor}" ${selected}>${nomeProfessor}</option>`;
       });
       
       const estudanteCellHTML = temEstudantes 
@@ -878,14 +933,29 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".select-professor").forEach(select => {
       select.addEventListener("change", (e) => {
         const index = parseInt(e.target.dataset.index);
-        const professorSelecionado = e.target.value;
-        state.aulas[index].professor = professorSelecionado;
+        const nomeProfessor = e.target.value;
+        const cpfProfessor = e.target.options[e.target.selectedIndex].dataset.cpf || "";
+        
+        state.aulas[index].professor = nomeProfessor;
+        state.aulas[index].idProfessor = cpfProfessor;
+        
         const professorCell = document.getElementById(`professor-cell-${index}`);
-        if (professorSelecionado && professorSelecionado !== "") {
+        if (nomeProfessor && nomeProfessor !== "") {
           professorCell.classList.remove("celula-professor-vazio");
         } else {
           professorCell.classList.add("celula-professor-vazio");
         }
+        
+        console.log(`Professor selecionado para aula ${index + 1}: ${nomeProfessor} (CPF: ${cpfProfessor})`);
+        console.table([{
+          Aula: index + 1,
+          Data: formatDate(state.aulas[index].data),
+          Horario: state.aulas[index].horario,
+          Materia: state.aulas[index].materia,
+          Professor: nomeProfessor,
+          CPF_Professor: cpfProfessor,
+          Estudante: state.aulas[index].estudante
+        }]);
       });
     });
   }
@@ -918,30 +988,55 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ==================== SEÇÃO 9: CONFIRMAÇÃO DE PAGAMENTO ====================
   function setupPagamento() {
+    console.log("🔧 setupPagamento chamado");
     fillPagamentoTable();
-    calcularValorTotal();
+    // calcularValorTotal(); // Comentado pois os elementos de valor foram removidos do HTML
     
-    document.getElementById("pagamento-cartao").addEventListener("click", async () => {
-      state.modoPagamento = "Cartão de crédito";
-      const sucesso = await salvarContratacao();
-      if (sucesso) {
-        showSection(sections.fim);
-        setTimeout(() => {
-          window.location.href = "https://wa.me/5582988862575?text=Olá! Gostaria de uma simulação no cartão de crédito";
-        }, 4000);
-      }
-    });
+    const btnCartao = document.getElementById("pagamento-cartao");
+    const btnPix = document.getElementById("pagamento-pix");
     
-    document.getElementById("pagamento-pix").addEventListener("click", async () => {
-      state.modoPagamento = "Pagamento PIX";
-      const sucesso = await salvarContratacao();
-      if (sucesso) {
-        showSection(sections.fim);
-        setTimeout(() => {
-          window.location.href = "https://wa.me/5582988862575?text=Olá! Acabei de contratar um novo pacote de aulas! Gostaria de assinar o contrato para efetuarmos o pagamento";
-        }, 4000);
-      }
-    });
+    console.log("Botão cartão:", btnCartao);
+    console.log("Botão pix:", btnPix);
+    
+    if (btnCartao) {
+      btnCartao.addEventListener("click", async () => {
+        console.log("🔘 Clique no botão CARTÃO detectado!");
+        state.modoPagamento = "Cartão de crédito";
+        console.log("💾 Iniciando salvamento...");
+        const sucesso = await salvarContratacao();
+        console.log("Resultado do salvamento:", sucesso);
+        if (sucesso) {
+          console.log("✅ Salvamento bem-sucedido, redirecionando...");
+          showSection(sections.fim);
+          setTimeout(() => {
+            console.log("📱 Redirecionando para WhatsApp...");
+            window.location.href = "https://wa.me/5582988862575?text=Olá! Gostaria de uma simulação no cartão de crédito";
+          }, 4000);
+        } else {
+          console.log("❌ Falha no salvamento");
+        }
+      });
+    }
+    
+    if (btnPix) {
+      btnPix.addEventListener("click", async () => {
+        console.log("🔘 Clique no botão PIX detectado!");
+        state.modoPagamento = "Pagamento PIX";
+        console.log("💾 Iniciando salvamento...");
+        const sucesso = await salvarContratacao();
+        console.log("Resultado do salvamento:", sucesso);
+        if (sucesso) {
+          console.log("✅ Salvamento bem-sucedido, redirecionando...");
+          showSection(sections.fim);
+          setTimeout(() => {
+            console.log("📱 Redirecionando para WhatsApp...");
+            window.location.href = "https://wa.me/5582988862575?text=Olá! Acabei de contratar um novo pacote de aulas! Gostaria de assinar o contrato para efetuarmos o pagamento";
+          }, 4000);
+        } else {
+          console.log("❌ Falha no salvamento");
+        }
+      });
+    }
   }
 
   function fillPagamentoTable() {
@@ -1028,6 +1123,21 @@ document.addEventListener("DOMContentLoaded", () => {
       const dataAtual = new Date();
       const dataFormatada = `${dataAtual.getDate().toString().padStart(2, "0")}/${(dataAtual.getMonth() + 1).toString().padStart(2, "0")}/${dataAtual.getFullYear()}`;
       
+      // Exibir tabela completa com todas as aulas e CPFs dos professores
+      console.log("📋 TABELA COMPLETA DE AULAS - INCLUINDO CPF DOS PROFESSORES:");
+      const tabelaAulas = state.aulas.map((aula, index) => ({
+        "ID Aula": idsAulas[index],
+        "Data": formatDate(aula.data),
+        "Horário": aula.horario,
+        "Duração": aula.duracao,
+        "Matéria": aula.materia,
+        "Professor": aula.professor,
+        "CPF Professor": aula.idProfessor || "(não definido)",
+        "Estudante": aula.estudante,
+        "Valor": `R$ ${aula.ValorAula}`
+      }));
+      console.table(tabelaAulas);
+      
       const dadosContratacao = {
         cpf: state.cpf,
         nomeCliente: state.nomeCliente,
@@ -1065,7 +1175,7 @@ document.addEventListener("DOMContentLoaded", () => {
       };
       
       await db.collection("BancoDeAulas").add(dadosContratacao);
-      console.log("✅ Dados salvos com sucesso!");
+      console.log("✅ Dados salvos com sucesso na coleção BancoDeAulas!");
       console.log("Código:", state.codigoContratacao);
       console.log("Modo de pagamento:", state.modoPagamento);
       console.log("Novas variáveis salvas:", {
@@ -1076,6 +1186,34 @@ document.addEventListener("DOMContentLoaded", () => {
         lucroMaster: state.lucroMaster,
         ObservacaoContratacao: state.ObservacaoContratacao
       });
+
+      // Salvar cada aula individualmente na coleção BancoDeAulas-Lista
+      console.log("📝 Salvando aulas individuais na coleção BancoDeAulas-Lista...");
+      for (let i = 0; i < state.aulas.length; i++) {
+        const aula = state.aulas[i];
+        const aulaIndividual = {
+          "id-Aula": idsAulas[i],
+          data: formatDate(aula.data),
+          horario: aula.horario,
+          duracao: aula.duracao,
+          materia: aula.materia,
+          professor: aula.professor,
+          estudante: aula.estudante,
+          StatusAula: aula.StatusAula || "",
+          ObservacoesAula: aula.ObservacoesAula || "",
+          RelatorioAula: aula.RelatorioAula || "",
+          ConfirmacaoProfessorAula: aula.ConfirmacaoProfessorAula || "false",
+          idProfessor: aula.idProfessor || "",
+          ValorAula: aula.ValorAula || 35,
+          nomeCliente: state.nomeCliente,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await db.collection("BancoDeAulas-Lista").add(aulaIndividual);
+        console.log(`✅ Aula ${i + 1}/${state.aulas.length} salva - ID: ${idsAulas[i]}`);
+      }
+      
+      console.log("🎉 Todas as aulas foram salvas individualmente!");
       return true;
     } catch (error) {
       console.error("❌ Erro ao salvar dados:", error);

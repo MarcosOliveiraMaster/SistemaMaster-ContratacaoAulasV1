@@ -157,6 +157,50 @@ body {
   color: #fff;
 }
 
+.btn-termos-outline {
+  background: #fff;
+  color: var(--orange);
+  /* border: 2px solid var(--orange); */
+  font-weight: 700;
+  border-radius: 0;
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.btn-termos-outline:hover {
+  /* background: var(--orange); */
+  /* color: #fff; */
+}
+
+.btn-no-border {
+  background: transparent;
+  color: var(--orange);
+  border: none;
+  font-family: "Comfortaa";
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.btn-no-border:hover {
+  background: var(--orange);
+  color: #fff;
+  transform: scale(1.02);
+}
+
+.btn-no-border.bg-orange-500 {
+  background: var(--orange) !important;
+}
+
+.btn-no-border.text-white {
+  color: #fff !important;
+}
+
 /* -------------------- CALENDÁRIO -------------------- */
 #calendar-days > div {
   width: 50px;

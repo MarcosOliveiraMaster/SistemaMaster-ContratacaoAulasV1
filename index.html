@@ -185,8 +185,8 @@
       <div class="card-inner transition-all duration-300 ease-in-out" style="min-height: auto;">
         <p class="text-comfortaa text-gray-800 text-center mb-4">Gostaria de manter os últimos professores do seu último atendimento?</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center mb-4">
-          <button id="sem-preferencia" class="btn-white shadow">Não tenho preferência de professores</button>
-          <button id="manter-professores" class="btn-white shadow">Sim, gostaria de repetir os professores</button>
+          <button id="sem-preferencia" class="btn-no-border">Não tenho preferência de professores</button>
+          <button id="manter-professores" class="btn-no-border">Sim, gostaria de repetir os professores</button>
         </div>
 
         <!-- Loading para busca de professores -->
@@ -229,7 +229,7 @@
 
     <!-- SECTION 7: Confirmação das Aulas -->
     <section id="section-confirmacaoAulas" class="section card-centered hidden px-4 py-6">
-      <div class="card-inner w-full">
+      <div class="card-inner w-full max-w-6xl">
         <h3 class="title-lexend text-orange-500 text-center mb-2">Confirmação das aulas</h3>
         <p class="text-comfortaa text-gray-700 text-center mb-4">
           Chegamos na fase final do nosso cronograma de aulas, confirme as informações de aulas, como datas, horários e disciplinas e selecione para qual estudante será cada aula.
@@ -286,8 +286,8 @@
 
         <!-- Botões dos termos -->
         <div class="flex flex-col md:flex-row gap-4 justify-center mb-8">
-          <button id="botao-termo-servico" class="btn-white-outline">Termos de serviço</button>
-          <button id="botao-termo-privacidade" class="btn-white-outline">Termos de privacidade</button>
+          <button id="botao-termo-servico" class="btn-termos-outline">Termos de serviço</button>
+          <button id="botao-termo-privacidade" class="btn-termos-outline">Termos de privacidade</button>
         </div>
 
         <div class="flex gap-4 justify-center mt-6">
@@ -320,20 +320,20 @@
         </div>
 
         <!-- Loading para cálculo do valor -->
-        <div id="loading-calculo-valor" class="hidden text-center my-4">
+        <!-- <div id="loading-calculo-valor" class="hidden text-center my-4">
           <div class="loading-spinner"></div>
           <div class="loading-text">Calculando valor total das aulas...</div>
-        </div>
+        </div> -->
 
         <!-- Valor total -->
-        <div id="valor-total-container" class="text-center mb-8">
+        <!-- <div id="valor-total-container" class="text-center mb-8">
           <div class="text-2xl font-bold text-green-600 mb-2">
             O valor total das aulas contratadas é R$ <span id="valor-total">0,00</span>
           </div>
           <div class="text-gray-600">
             ou pague com cartão de crédito em 3x de R$ <span id="valor-parcela">0,00</span>
           </div>
-        </div>
+        </div> -->
 
         <div class="flex flex-col sm:flex-row gap-4 justify-center mt-6">
           <button id="pagamento-voltar" class="btn-white mb-2 sm:mb-0">Voltar</button>
